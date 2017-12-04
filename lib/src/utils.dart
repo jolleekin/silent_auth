@@ -6,7 +6,8 @@ import 'dart:html';
 import 'dart:js';
 import 'dart:typed_data';
 
-const charset = '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._~';
+const charset =
+    '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._~';
 const oneMinute = const Duration(minutes: 1);
 const timeoutResponse = const {'error': 'timeout'};
 
@@ -14,6 +15,12 @@ const timeoutResponse = const {'error': 'timeout'};
 ///
 /// [timeout] specifies the maximum duration allowed for this call. If [timeout]
 /// passes when the request is ongoing, this function will return [timeoutResponse].
+///
+/// For any other error [:e:], this function will return the following [Map]
+///     {
+///       'error': 'other',
+///       'original': e
+///     }
 Future<Map<String, String>> callEndpoint(String uri,
     {Duration timeout = oneMinute}) async {
   IFrameElement frame;
@@ -30,15 +37,19 @@ Future<Map<String, String>> callEndpoint(String uri,
 
   frame = new IFrameElement()..hidden = true;
   sub = frame.onLoad.listen((_) {
-    var jsLocation =
-        new JsObject.fromBrowserObject(frame.contentWindow.location);
-    var fragment = jsLocation['hash'].substring(1);
-    var response = Uri.splitQueryString(fragment);
-    done();
-    if (response.containsKey('error')) {
-      completer.completeError(response);
-    } else {
-      completer.complete(response);
+    try {
+      var jsFrame = new JsObject.fromBrowserObject(frame);
+      var fragment = jsFrame['contentWindow']['location']['hash'].substring(1);
+      var response = Uri.splitQueryString(fragment);
+      if (response.containsKey('error')) {
+        completer.completeError(response);
+      } else {
+        completer.complete(response);
+      }
+    } catch (e, s) {
+      completer.completeError({'error': 'other', 'original': e}, s);
+    } finally {
+      done();
     }
   });
   frame.src = uri;

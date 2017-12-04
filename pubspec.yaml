@@ -1,7 +1,7 @@
 name: silent_auth
 description: A package that enables seamless user experience for single page web
              applications using OAuth 2.0 - OpenID Connect with the implicit flow.
-version: 0.0.1
+version: 0.0.2
 homepage: https://github.com/jolleekin/silent_auth
 author: Man Hoang <jolleekin@outlook.com>
 
