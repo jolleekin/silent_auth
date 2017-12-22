@@ -165,12 +165,13 @@ class SilentAuth {
   void logOut() {
     _checkInitialized();
 
-    _cancelTokenRenewal();
-    _clear();
     var q = {
       'post_logout_redirect_uri': redirectUri,
       'id_token_hint': _idToken,
     };
+    _cancelTokenRenewal();
+    _clear();
+
     var uri = _endSessionEndpoint.replace(queryParameters: q);
     window.location.href = uri.toString();
   }
@@ -226,9 +227,9 @@ class SilentAuth {
   String _readParam(String key) => _storage['$_namespace.$key'];
 
   void _renewToken() {
-    _silentAuthorizeParameters['state'] = randomString(32);
+    _silentAuthorizeParameters['state'] = randomString(_keyLength);
     if (_includeNonce) {
-      _silentAuthorizeParameters['nonce'] = randomString(32);
+      _silentAuthorizeParameters['nonce'] = randomString(_keyLength);
     }
     var uri =
         _authorizeEndpoint.replace(queryParameters: _silentAuthorizeParameters);
