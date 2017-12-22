@@ -277,6 +277,7 @@ class SilentAuth {
 
     // We don't want to wait for the access token to expire, otherwise the user
     // experience will be affected.
-    _renewTimer = new Timer(_expiresIn - timeout, _renewToken);
+    var duration = _expiresAt.difference(_utcNow) - timeout;
+    _renewTimer = new Timer(duration, _renewToken);
   }
 }
