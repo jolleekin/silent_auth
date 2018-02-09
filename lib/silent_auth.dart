@@ -55,6 +55,7 @@ class SilentAuth {
   /// The maximum duration allowed for the token renewal.
   final Duration timeout;
 
+  final void Function(dynamic) _inspectIdToken;
   final void Function(SilentAuth) _onRenew;
   final Map<String, String> _storage;
   Uri _authorizeEndpoint;
@@ -68,9 +69,13 @@ class SilentAuth {
   Timer _renewTimer;
   Map<String, String> _authorizeParameters;
   Map<String, String> _silentAuthorizeParameters;
-
+  String _authorizePath;
+  String _endsessionPath;
   ///
   ///
+  ///
+  /// [inspectIdToken] is the callback invoked after each successful login and allows
+  /// for checking an id_token's validity.
   ///
   /// [onRenew] is the callback to be invoked after each successful token renewal.
   ///
@@ -91,9 +96,15 @@ class SilentAuth {
       this.responseType = 'id_token token',
       this.timeout = oneMinute,
       void onRenew(SilentAuth auth),
-      Map<String, String> storage})
+      void inspectIdToken(dynamic idTokenJson),
+      Map<String, String> storage,
+      String authorizePath,
+      String endsessionPath})
       : _onRenew = onRenew,
-        _storage = storage ?? window.localStorage;
+        _inspectIdToken = inspectIdToken,
+        _storage = storage ?? window.localStorage,
+        _authorizePath = authorizePath ?? "authorize",
+        _endsessionPath = endsessionPath ?? "endpoint";
 
   /// The access token.
   String get accessToken => _accessToken;
@@ -116,8 +127,8 @@ class SilentAuth {
     if (_initialized) return;
 
     _initialized = true;
-    _authorizeEndpoint = Uri.parse('$baseIdentityUri/authorize');
-    _endSessionEndpoint = Uri.parse('$baseIdentityUri/endsession');
+    _authorizeEndpoint = Uri.parse('$baseIdentityUri/$_authorizePath');
+    _endSessionEndpoint = Uri.parse('$baseIdentityUri/$_endsessionPath');
     _includeNonce = responseType.contains('id_token');
     _authorizeParameters = {
       'response_type': responseType,
@@ -216,6 +227,7 @@ class SilentAuth {
         return;
       }
     }
+    if (_inspectIdToken != null) _inspectIdToken(decodeTokenPayload(response['id_token']));
     _saveResponse(response);
     _scheduleTokenRenewal();
     if (_onRenew != null) _onRenew(this);
