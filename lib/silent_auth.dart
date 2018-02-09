@@ -69,7 +69,8 @@ class SilentAuth {
   Timer _renewTimer;
   Map<String, String> _authorizeParameters;
   Map<String, String> _silentAuthorizeParameters;
-
+  String _authorizePath;
+  String _endsessionPath;
   ///
   ///
   ///
@@ -96,10 +97,14 @@ class SilentAuth {
       this.timeout = oneMinute,
       void onRenew(SilentAuth auth),
       void inspectIdToken(dynamic idTokenJson),
-      Map<String, String> storage)
+      Map<String, String> storage,
+      String authorizePath,
+      String endsessionPath})
       : _onRenew = onRenew,
         _inspectIdToken = inspectIdToken,
-        _storage = storage ?? window.localStorage;
+        _storage = storage ?? window.localStorage,
+        _authorizePath = authorizePath ?? "authorize",
+        _endsessionPath = endsessionPath ?? "endpoint";
 
   /// The access token.
   String get accessToken => _accessToken;
@@ -122,8 +127,8 @@ class SilentAuth {
     if (_initialized) return;
 
     _initialized = true;
-    _authorizeEndpoint = Uri.parse('$baseIdentityUri/authorize');
-    _endSessionEndpoint = Uri.parse('$baseIdentityUri/endsession');
+    _authorizeEndpoint = Uri.parse('$baseIdentityUri/$_authorizePath');
+    _endSessionEndpoint = Uri.parse('$baseIdentityUri/$_endsessionPath');
     _includeNonce = responseType.contains('id_token');
     _authorizeParameters = {
       'response_type': responseType,
