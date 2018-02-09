@@ -55,6 +55,7 @@ class SilentAuth {
   /// The maximum duration allowed for the token renewal.
   final Duration timeout;
 
+  final void Function(dynamic) _inspectIdToken;
   final void Function(SilentAuth) _onRenew;
   final Map<String, String> _storage;
   Uri _authorizeEndpoint;
@@ -71,6 +72,9 @@ class SilentAuth {
 
   ///
   ///
+  ///
+  /// [inspectIdToken] is the callback invoked after each successful login and allows
+  /// for checking an id_token's validity.
   ///
   /// [onRenew] is the callback to be invoked after each successful token renewal.
   ///
@@ -91,8 +95,10 @@ class SilentAuth {
       this.responseType = 'id_token token',
       this.timeout = oneMinute,
       void onRenew(SilentAuth auth),
-      Map<String, String> storage})
+      void inspectIdToken(dynamic idTokenJson),
+      Map<String, String> storage)
       : _onRenew = onRenew,
+        _inspectIdToken = inspectIdToken,
         _storage = storage ?? window.localStorage;
 
   /// The access token.
@@ -216,6 +222,7 @@ class SilentAuth {
         return;
       }
     }
+    if (_inspectIdToken != null) _inspectIdToken(decodeTokenPayload(response['id_token']));
     _saveResponse(response);
     _scheduleTokenRenewal();
     if (_onRenew != null) _onRenew(this);
