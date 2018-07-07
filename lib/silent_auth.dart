@@ -4,10 +4,13 @@ import 'dart:async';
 import 'dart:html';
 import 'dart:js';
 
-import 'src/utils.dart';
+import 'utils.dart';
+
+const oneMinute = const Duration(minutes: 1);
 
 const _keyLength = 32;
 const _namespace = 'silent_auth';
+const _timeoutResponse = const {'error': 'timeout'};
 
 final bool _supportsIFrame = (() {
   try {
@@ -19,6 +22,59 @@ final bool _supportsIFrame = (() {
 })();
 
 DateTime get _utcNow => new DateTime.now().toUtc();
+
+/// Silently calls an identity server's endpoint specified by [uri].
+///
+/// [timeout] specifies the maximum duration allowed for this call.
+/// If [timeout] passes when the request is ongoing, this function will return
+/// [_timeoutResponse].
+///
+/// For any other error [:e:], this function will return the following [Map]
+///     {
+///       'error': 'other',
+///       'original': e
+///     }
+Future<Map<String, String>> _callEndpoint(String uri,
+    {Duration timeout = oneMinute}) {
+  IFrameElement frame;
+  StreamSubscription sub;
+  Timer timer;
+
+  void done() {
+    frame.remove();
+    sub.cancel();
+    timer.cancel();
+  }
+
+  var completer = new Completer<Map<String, String>>();
+
+  frame = new IFrameElement()..hidden = true;
+  sub = frame.onLoad.listen((_) {
+    try {
+      var jsFrame = new JsObject.fromBrowserObject(frame);
+      var fragment = jsFrame['contentWindow']['location']['hash'].substring(1);
+      var response = Uri.splitQueryString(fragment);
+      if (response.containsKey('error')) {
+        completer.completeError(response);
+      } else {
+        completer.complete(response);
+      }
+    } catch (e, s) {
+      completer.completeError({'error': 'other', 'original': e}, s);
+    } finally {
+      done();
+    }
+  });
+  frame.src = uri;
+  document.body.append(frame);
+
+  timer = new Timer(timeout, () {
+    done();
+    completer.completeError(_timeoutResponse);
+  });
+
+  return completer.future;
+}
 
 /// Only supports seconds.
 Duration _parseDuration(String input) =>
@@ -45,8 +101,8 @@ class SilentAuth {
 
   /// The token renewal redirect URI.
   ///
-  /// This URI must belong to the application's domain. Usually, this is just a dummy
-  /// HTML file.
+  /// This URI must belong to the application's domain. Usually, this just
+  /// points to a dummy HTML file.
   final String silentRedirectUri;
 
   /// The scope.
@@ -55,30 +111,33 @@ class SilentAuth {
   /// The maximum duration allowed for the token renewal.
   final Duration timeout;
 
-  final void Function(SilentAuth) _onRenew;
+  final void Function(SilentAuth auth) _onRenew;
   final Map<String, String> _storage;
   Uri _authorizeEndpoint;
   Uri _endSessionEndpoint;
-  String _accessToken;
+  Token _accessToken;
   Duration _expiresIn;
   DateTime _expiresAt;
-  String _idToken;
+  Token _idToken;
   bool _includeNonce;
   bool _initialized = false;
   Timer _renewTimer;
   Map<String, String> _authorizeParameters;
   Map<String, String> _silentAuthorizeParameters;
 
+  /// Creates a [SilentAuth] instance.
   ///
+  /// [authorizePath] and [endSessionPath] are the paths of the Authorize and
+  /// End Session endpoints, respectively.
   ///
-  ///
-  /// [onRenew] is the callback to be invoked after each successful token renewal.
+  /// [onRenew] is the callback to be invoked after each successful token
+  /// renewal.
   ///
   /// [storage] will be used to persist authentication data. It is defaulted to
   /// [window.localStorage].
   ///
-  /// For a description of the other parameters, please visit [Authorize Endpoint][1]
-  /// and [End Session Endpoint][2].
+  /// For a description of the other parameters, please visit
+  /// [Authorize Endpoint][1] and [End Session Endpoint][2].
   ///
   /// - [1]: http://docs.identityserver.io/en/release/endpoints/authorize.html
   /// - [2]: http://docs.identityserver.io/en/release/endpoints/endsession.html
@@ -89,14 +148,20 @@ class SilentAuth {
       this.silentRedirectUri,
       this.scope,
       this.responseType = 'id_token token',
+      String authorizePath = '/authorize',
+      String endSessionPath = '/endsession',
       this.timeout = oneMinute,
       void onRenew(SilentAuth auth),
       Map<String, String> storage})
       : _onRenew = onRenew,
-        _storage = storage ?? window.localStorage;
+        _storage = storage ?? window.localStorage {
+    _authorizeEndpoint = Uri.parse('$baseIdentityUri$authorizePath');
+    _endSessionEndpoint = Uri.parse('$baseIdentityUri$endSessionPath');
+    _includeNonce = responseType.contains('id_token');
+  }
 
   /// The access token.
-  String get accessToken => _accessToken;
+  Token get accessToken => _accessToken;
 
   /// The date and time at which [accessToken] expires.
   DateTime get expiresAt => _expiresAt;
@@ -105,7 +170,7 @@ class SilentAuth {
   Duration get expiresIn => _expiresIn;
 
   /// The ID token.
-  String get idToken => _idToken;
+  Token get idToken => _idToken;
 
   /// Whether [accessToken] exists and doesn't expire yet.
   bool get isAccessTokenValid =>
@@ -116,9 +181,7 @@ class SilentAuth {
     if (_initialized) return;
 
     _initialized = true;
-    _authorizeEndpoint = Uri.parse('$baseIdentityUri/authorize');
-    _endSessionEndpoint = Uri.parse('$baseIdentityUri/endsession');
-    _includeNonce = responseType.contains('id_token');
+
     _authorizeParameters = {
       'response_type': responseType,
       'redirect_uri': redirectUri,
@@ -210,8 +273,8 @@ class SilentAuth {
       return;
     }
     if (_includeNonce) {
-      var payload = decodeTokenPayload(response['id_token']);
-      if (payload['nonce'] != request['nonce']) {
+      var token = new Token(response['id_token']);
+      if (token.payload['nonce'] != request['nonce']) {
         _handleError(const {'error': 'nonce_unmatched'});
         return;
       }
@@ -233,7 +296,7 @@ class SilentAuth {
     }
     var uri =
         _authorizeEndpoint.replace(queryParameters: _silentAuthorizeParameters);
-    callEndpoint(uri.toString(), timeout: timeout)
+    _callEndpoint(uri.toString(), timeout: timeout)
         .then(_handleSilentResponse)
         .catchError(_handleError);
   }
@@ -248,11 +311,14 @@ class SilentAuth {
 
     // Response.
 
-    _accessToken = _readParam('access_token');
-    if (_accessToken != null) {
-      _idToken = _readParam('id_token');
+    var tmp = _readParam('access_token');
+    if (tmp != null) {
+      _accessToken = new Token(tmp);
 
-      var tmp = _readParam('expires_at');
+      tmp = _readParam('id_token');
+      if (tmp != null) _idToken = new Token(tmp);
+
+      tmp = _readParam('expires_at');
       if (tmp != null) _expiresAt = DateTime.parse(tmp);
 
       tmp = _readParam('expires_in');
@@ -264,10 +330,15 @@ class SilentAuth {
       _storage['$_namespace.$key'] = value;
 
   void _saveResponse(Map<String, String> response) {
-    _accessToken = _saveParam('access_token', response['access_token']);
-    _idToken = _saveParam('id_token', response['id_token']);
-    _expiresIn =
-        _parseDuration(_saveParam('expires_in', response['expires_in']));
+    var value = _saveParam('access_token', response['access_token']);
+    _accessToken = value != null ? new Token(value) : null;
+
+    value = _saveParam('id_token', response['id_token']);
+    _idToken = value != null ? new Token(value) : null;
+
+    value = _saveParam('expires_in', response['expires_in']);
+    _expiresIn = _parseDuration(value);
+
     _expiresAt = _utcNow.add(_expiresIn);
     _saveParam('expires_at', _expiresAt.toString());
   }
@@ -280,4 +351,36 @@ class SilentAuth {
     var duration = _expiresAt.difference(_utcNow) - timeout;
     _renewTimer = new Timer(duration, _renewToken);
   }
+}
+
+/// A class that represents an access or ID token.
+class Token {
+  final String rawValue;
+
+  Map<String, dynamic> _header;
+  Map<String, dynamic> _payload;
+  String _signature;
+  final int _i0;
+  final int _i1;
+
+  Token(this.rawValue)
+      : _i0 = rawValue.indexOf('.'),
+        _i1 = rawValue.lastIndexOf('.');
+
+  Map<String, dynamic> get header {
+    _header ??= base64ToJson(rawValue.substring(_i0));
+    return _header;
+  }
+
+  Map<String, dynamic> get payload {
+    _payload ??= base64ToJson(rawValue.substring(_i0 + 1, _i1));
+    return _payload;
+  }
+
+  String get signature {
+    _signature ??= rawValue.substring(_i1 + 1);
+    return _signature;
+  }
+
+  String toString() => rawValue;
 }

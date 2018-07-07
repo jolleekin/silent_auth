@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.5
+- refactoring: `utils.dart` was moved to `/lib` and no longer contains functions used internally
+- Added class `Token`, which represents an access or ID token
+- *BREAKING CHANGE*: `SilentAuth.accessToken` and `SilentAuth.idToken` are now of type `Token` rather than `String`.
+
 ## 0.0.4
 - Fixed a bug in which the token renewal is not properly scheduled the first time
 
