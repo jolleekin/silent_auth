@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.0.6
+- Fixed a bug that happens when `logOut` is called due to the new `Token` type
+
 ## 0.0.5
 - refactoring: `utils.dart` was moved to `/lib` and no longer contains functions used internally
 - Added class `Token`, which represents an access or ID token

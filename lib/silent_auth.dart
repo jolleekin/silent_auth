@@ -230,7 +230,7 @@ class SilentAuth {
 
     var q = {
       'post_logout_redirect_uri': redirectUri,
-      'id_token_hint': _idToken,
+      'id_token_hint': _idToken?.rawValue,
     };
     _cancelTokenRenewal();
     _clear();
@@ -311,18 +311,18 @@ class SilentAuth {
 
     // Response.
 
-    var tmp = _readParam('access_token');
-    if (tmp != null) {
-      _accessToken = new Token(tmp);
+    var value = _readParam('access_token');
+    if (value != null) {
+      _accessToken = new Token(value);
 
-      tmp = _readParam('id_token');
-      if (tmp != null) _idToken = new Token(tmp);
+      value = _readParam('id_token');
+      if (value != null) _idToken = new Token(value);
 
-      tmp = _readParam('expires_at');
-      if (tmp != null) _expiresAt = DateTime.parse(tmp);
+      value = _readParam('expires_at');
+      if (value != null) _expiresAt = DateTime.parse(value);
 
-      tmp = _readParam('expires_in');
-      if (tmp != null) _expiresIn = _parseDuration(tmp);
+      value = _readParam('expires_in');
+      if (value != null) _expiresIn = _parseDuration(value);
     }
   }
 
