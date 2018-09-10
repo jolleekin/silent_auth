@@ -6,79 +6,7 @@ import 'dart:js';
 
 import 'utils.dart';
 
-const oneMinute = const Duration(minutes: 1);
-
-const _keyLength = 32;
-const _namespace = 'silent_auth';
-const _timeoutResponse = const {'error': 'timeout'};
-
-final bool _supportsIFrame = (() {
-  try {
-    var e = new JsObject.fromBrowserObject(new IFrameElement());
-    return e.hasProperty('src');
-  } catch (_) {
-    return false;
-  }
-})();
-
-DateTime get _utcNow => new DateTime.now().toUtc();
-
-/// Silently calls an identity server's endpoint specified by [uri].
-///
-/// [timeout] specifies the maximum duration allowed for this call.
-/// If [timeout] passes when the request is ongoing, this function will return
-/// [_timeoutResponse].
-///
-/// For any other error [:e:], this function will return the following [Map]
-///     {
-///       'error': 'other',
-///       'original': e
-///     }
-Future<Map<String, String>> _callEndpoint(String uri,
-    {Duration timeout = oneMinute}) {
-  IFrameElement frame;
-  StreamSubscription sub;
-  Timer timer;
-
-  void done() {
-    frame.remove();
-    sub.cancel();
-    timer.cancel();
-  }
-
-  var completer = new Completer<Map<String, String>>();
-
-  frame = new IFrameElement()..hidden = true;
-  sub = frame.onLoad.listen((_) {
-    try {
-      var jsFrame = new JsObject.fromBrowserObject(frame);
-      var fragment = jsFrame['contentWindow']['location']['hash'].substring(1);
-      var response = Uri.splitQueryString(fragment);
-      if (response.containsKey('error')) {
-        completer.completeError(response);
-      } else {
-        completer.complete(response);
-      }
-    } catch (e, s) {
-      completer.completeError({'error': 'other', 'original': e}, s);
-    } finally {
-      done();
-    }
-  });
-  frame.src = uri;
-  document.body.append(frame);
-
-  timer = new Timer(timeout, () {
-    done();
-    completer.completeError(_timeoutResponse);
-  });
-
-  return completer.future;
-}
-
-/// Only supports seconds.
-Duration _parseDuration(String input) =>
-    new Duration(seconds: int.parse(input));
+const oneMinute = Duration(minutes: 1);
 
 class SilentAuth {
   /// [baseIdentityUri] should not have a trailing slash. Endpoint URIs will be
@@ -190,7 +118,7 @@ class SilentAuth {
       'state': null,
       'nonce': null,
     };
-    _silentAuthorizeParameters = new Map.from(_authorizeParameters)
+    _silentAuthorizeParameters = Map.from(_authorizeParameters)
       ..['redirect_uri'] = silentRedirectUri
       ..['prompt'] = 'none';
 
@@ -245,7 +173,7 @@ class SilentAuth {
 
   void _checkInitialized() {
     if (!_initialized) {
-      throw new StateError('SilentAuth has not been initialized.');
+      throw StateError('SilentAuth has not been initialized.');
     }
   }
 
@@ -273,7 +201,7 @@ class SilentAuth {
       return;
     }
     if (_includeNonce) {
-      var token = new Token(response['id_token']);
+      var token = Token(response['id_token']);
       if (token.payload['nonce'] != request['nonce']) {
         _handleError(const {'error': 'nonce_unmatched'});
         return;
@@ -313,10 +241,10 @@ class SilentAuth {
 
     var value = _readParam('access_token');
     if (value != null) {
-      _accessToken = new Token(value);
+      _accessToken = Token(value);
 
       value = _readParam('id_token');
-      if (value != null) _idToken = new Token(value);
+      if (value != null) _idToken = Token(value);
 
       value = _readParam('expires_at');
       if (value != null) _expiresAt = DateTime.parse(value);
@@ -331,10 +259,10 @@ class SilentAuth {
 
   void _saveResponse(Map<String, String> response) {
     var value = _saveParam('access_token', response['access_token']);
-    _accessToken = value != null ? new Token(value) : null;
+    _accessToken = value != null ? Token(value) : null;
 
     value = _saveParam('id_token', response['id_token']);
-    _idToken = value != null ? new Token(value) : null;
+    _idToken = value != null ? Token(value) : null;
 
     value = _saveParam('expires_in', response['expires_in']);
     _expiresIn = _parseDuration(value);
@@ -349,11 +277,12 @@ class SilentAuth {
     // We don't want to wait for the access token to expire, otherwise the user
     // experience will be affected.
     var duration = _expiresAt.difference(_utcNow) - timeout;
-    _renewTimer = new Timer(duration, _renewToken);
+    _renewTimer = Timer(duration, _renewToken);
   }
 }
 
 /// A class that represents an access or ID token.
+/// See [JSON Web Tokens](https://jwt.io/)
 class Token {
   final String rawValue;
 
@@ -368,7 +297,7 @@ class Token {
         _i1 = rawValue.lastIndexOf('.');
 
   Map<String, dynamic> get header {
-    _header ??= base64ToJson(rawValue.substring(_i0));
+    _header ??= base64ToJson(rawValue.substring(0, _i0));
     return _header;
   }
 
@@ -384,3 +313,75 @@ class Token {
 
   String toString() => rawValue;
 }
+
+const _keyLength = 32;
+const _namespace = 'silent_auth';
+const _timeoutResponse = {'error': 'timeout'};
+
+final bool _supportsIFrame = (() {
+  try {
+    var e = JsObject.fromBrowserObject(IFrameElement());
+    return e.hasProperty('src');
+  } catch (_) {
+    return false;
+  }
+})();
+
+DateTime get _utcNow => DateTime.now().toUtc();
+
+/// Silently calls an identity server's endpoint specified by [uri].
+///
+/// [timeout] specifies the maximum duration allowed for this call.
+/// If [timeout] passes when the request is ongoing, this function will return
+/// [_timeoutResponse].
+///
+/// For any other error [:e:], this function will return the following [Map]
+///     {
+///       'error': 'other',
+///       'original': e
+///     }
+Future<Map<String, String>> _callEndpoint(String uri,
+    {Duration timeout = oneMinute}) {
+  IFrameElement frame;
+  StreamSubscription sub;
+  Timer timer;
+
+  void done() {
+    frame.remove();
+    sub.cancel();
+    timer.cancel();
+  }
+
+  var completer = Completer<Map<String, String>>();
+
+  frame = IFrameElement()..hidden = true;
+  sub = frame.onLoad.listen((_) {
+    try {
+      var jsFrame = JsObject.fromBrowserObject(frame);
+      var fragment = jsFrame['contentWindow']['location']['hash'].substring(1);
+      var response = Uri.splitQueryString(fragment);
+      if (response.containsKey('error')) {
+        completer.completeError(response);
+      } else {
+        completer.complete(response);
+      }
+    } catch (e, s) {
+      completer.completeError({'error': 'other', 'original': e}, s);
+    } finally {
+      done();
+    }
+  });
+  frame.src = uri;
+  document.body.append(frame);
+
+  timer = Timer(timeout, () {
+    done();
+    completer.completeError(_timeoutResponse);
+  });
+
+  return completer.future;
+}
+
+/// Only supports seconds.
+Duration _parseDuration(String input) =>
+    Duration(seconds: int.parse(input));

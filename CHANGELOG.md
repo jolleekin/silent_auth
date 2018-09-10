@@ -1,4 +1,8 @@
 # Changelog
+## 0.0.7
+- *BREAKING CHANGE*: This version requires Dart 2.0.0 or later
+- Fixed a bug where accessing `Token.header` will throw
+- Added some tests
 
 ## 0.0.6
 - Fixed a bug that happens when `logOut` is called due to the new `Token` type

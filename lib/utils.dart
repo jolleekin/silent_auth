@@ -13,13 +13,13 @@ Map<String, dynamic> base64ToJson(String input) {
   var r = input.length & 3;
   if (r > 0) input += '%3D' * (4 - r);
 
-  var json = JSON.decode(new String.fromCharCodes(BASE64.decode(input)));
+  var json = jsonDecode(String.fromCharCodes(base64Decode(input)));
   return json;
 }
 
 /// Creates a securely random string with [length] characters in [charset].
 String randomString(int length, {String charset = defaultCharset}) {
-  var bytes = new Uint8List(length);
+  var bytes = Uint8List(length);
   window.crypto.getRandomValues(bytes);
   var result = bytes.map((e) => charset[e % charset.length]).join();
   return result;
