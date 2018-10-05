@@ -19,7 +19,7 @@ This package is usually used together with an idle tracking library/package such
         baseIdentityUri: 'https://your-identity-server.com/connect',
         clientId: 'admin',
         scope: 'openid api',
-        redirectUri: 'http://localhost:12345/index.html'
+        redirectUri: 'http://localhost:12345/index.html',
         silentRedirectUri: 'http://localhost:12345/silent_auth.html',
         onRenew: (auth) => requestHeaders['Authorization'] = 'Bearer ${auth.accessToken}');
     
