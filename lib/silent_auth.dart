@@ -14,8 +14,8 @@ class SilentAuth {
   /// - [Authorize Endpoint][1] = [baseIdentityUri] + '/authorize'
   /// - [End Session Endpoint][2] = [baseIdentityUri] + '/endsession'
   ///
-  /// - [1]: http://docs.identityserver.io/en/release/endpoints/authorize.html
-  /// - [2]: http://docs.identityserver.io/en/release/endpoints/endsession.html
+  /// - [1]: http://docs.identityserver.io/en/latest/endpoints/authorize.html
+  /// - [2]: http://docs.identityserver.io/en/latest/endpoints/endsession.html
   final String baseIdentityUri;
 
   /// The client ID.
@@ -67,8 +67,8 @@ class SilentAuth {
   /// For a description of the other parameters, please visit
   /// [Authorize Endpoint][1] and [End Session Endpoint][2].
   ///
-  /// - [1]: http://docs.identityserver.io/en/release/endpoints/authorize.html
-  /// - [2]: http://docs.identityserver.io/en/release/endpoints/endsession.html
+  /// - [1]: http://docs.identityserver.io/en/latest/endpoints/authorize.html
+  /// - [2]: http://docs.identityserver.io/en/latest/endpoints/endsession.html
   SilentAuth(
       {this.baseIdentityUri,
       this.clientId,
@@ -383,5 +383,4 @@ Future<Map<String, String>> _callEndpoint(String uri,
 }
 
 /// Only supports seconds.
-Duration _parseDuration(String input) =>
-    Duration(seconds: int.parse(input));
+Duration _parseDuration(String input) => Duration(seconds: int.parse(input));

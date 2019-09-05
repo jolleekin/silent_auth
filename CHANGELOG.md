@@ -1,4 +1,9 @@
 # Changelog
+
+## 0.0.8
+- Improve README.md
+- Update documentation
+
 ## 0.0.7
 - *BREAKING CHANGE*: This version requires Dart 2.0.0 or later
 - Fixed a bug where accessing `Token.header` will throw
@@ -19,9 +24,7 @@
 - Fixed a bug causing `post_logout_redirect_uri` not to be displayed in the logged-out page
 
 ## 0.0.2
-
 - Fixed a bug causing `utils.callEndpoint` to fail when compiled to JS
 
 ## 0.0.1
-
 - Initial version
